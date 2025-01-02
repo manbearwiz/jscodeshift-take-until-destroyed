@@ -19,7 +19,10 @@ export default function transform(file: FileInfo, api: API) {
         (arg) =>
           j.CallExpression.check(arg) &&
           j.Identifier.check(arg.callee) &&
-          arg.callee.name === 'takeUntil',
+          arg.callee.name === 'takeUntil' &&
+          arg.arguments.length === 1 &&
+          j.MemberExpression.check(arg.arguments[0]) &&
+          j.ThisExpression.check(arg.arguments[0].object),
       ),
   } as const;
 
@@ -118,147 +121,160 @@ export default function transform(file: FileInfo, api: API) {
       });
   }
 
-  root.find(j.ClassDeclaration).forEach((classPath) => {
-    j(classPath)
-      .find(j.ClassMethod, { key: { name: 'constructor' } })
-      .forEach((path) => {
-        j(path)
-          .find(j.CallExpression, pipeWithTakeUntil)
-          .forEach(({ node }) => replaceTakeUntil(node));
-      });
-
-    j(classPath)
-      .find(j.ClassProperty, { value: pipeWithTakeUntil })
-      .forEach(
-        ({ node }) =>
-          j.CallExpression.assert(node.value) && replaceTakeUntil(node.value),
-      );
-
-    const needsDestroyRef = j(classPath).find(
-      j.CallExpression,
-      pipeWithTakeUntil,
-    );
-    needsDestroyRef.forEach(({ node }) => replaceTakeUntil(node, true));
-
-    destroyPropertyNames.forEach((destroyPropertyName) => {
+  root
+    .find(j.ClassDeclaration, {
+      superClass: null,
+      implements: (impls) =>
+        impls?.some(
+          (impl) =>
+            j.TSExpressionWithTypeArguments.check(impl) &&
+            j.Identifier.check(impl.expression) &&
+            impl.expression.name === 'OnDestroy',
+        ) ?? false,
+    })
+    .forEach((classPath) => {
       j(classPath)
-        .find(j.ClassProperty, { key: { name: destroyPropertyName } })
+        .find(j.ClassMethod, { key: { name: 'constructor' } })
         .forEach((path) => {
-          let init = path.node.value;
-          path.prune();
-
-          if (!j.NewExpression.check(init)) {
-            j(classPath)
-              .find(j.ClassMethod, { key: { name: 'constructor' } })
-              .forEach((path) => {
-                j(path)
-                  .find(j.ExpressionStatement, {
-                    expression: {
-                      type: 'AssignmentExpression',
-                      left: {
-                        type: 'MemberExpression',
-                        object: { type: 'ThisExpression' },
-                        property: {
-                          type: 'Identifier',
-                          name: destroyPropertyName,
-                        },
-                      },
-                      right: { type: 'NewExpression' },
-                    },
-                  })
-                  .forEach((path) => {
-                    if (
-                      j.AssignmentExpression.check(path.node.expression) &&
-                      path.node.expression.right
-                    ) {
-                      init = path.node.expression.right;
-                    }
-                    path.prune();
-                    if (!path.parent?.node.body.body.length) {
-                      path.parent.prune();
-                    }
-                  });
-              });
-          }
-
-          if (
-            j.NewExpression.check(init) &&
-            j.Identifier.check(init.callee) &&
-            init.callee.name === 'Subject'
-          ) {
-            const subjectUnused = !j(classPath).find(j.Identifier, {
-              name: 'Subject',
-            }).length;
-
-            if (subjectUnused) {
-              removeImport(root, 'rxjs', 'Subject');
-            }
-          }
+          j(path)
+            .find(j.CallExpression, pipeWithTakeUntil)
+            .forEach(({ node }) => replaceTakeUntil(node));
         });
 
       j(classPath)
-        .find(j.ClassMethod, { key: { name: 'ngOnDestroy' } })
-        .forEach((path) => {
-          path.node.body.body = path.node.body.body.filter(
-            (stmt) =>
-              !(
-                j.ExpressionStatement.check(stmt) &&
-                j.CallExpression.check(stmt.expression) &&
-                j.MemberExpression.check(stmt.expression.callee) &&
-                j.MemberExpression.check(stmt.expression.callee.object) &&
-                j.ThisExpression.check(stmt.expression.callee.object.object) &&
-                j.Identifier.check(stmt.expression.callee.property) &&
-                j.Identifier.check(stmt.expression.callee.object.property) &&
-                destroyPropertyName ===
-                  stmt.expression.callee.object.property.name
-              ),
-          );
-          if (!path.node.body.body.length) {
+        .find(j.ClassProperty, { value: pipeWithTakeUntil })
+        .forEach(
+          ({ node }) =>
+            j.CallExpression.assert(node.value) && replaceTakeUntil(node.value),
+        );
+
+      const needsDestroyRef = j(classPath).find(
+        j.CallExpression,
+        pipeWithTakeUntil,
+      );
+      needsDestroyRef.forEach(({ node }) => replaceTakeUntil(node, true));
+
+      destroyPropertyNames.forEach((destroyPropertyName) => {
+        j(classPath)
+          .find(j.ClassProperty, { key: { name: destroyPropertyName } })
+          .forEach((path) => {
+            let init = path.node.value;
             path.prune();
 
-            classPath.node.implements =
-              classPath.node.implements?.filter(
-                (impl): impl is TSExpressionWithTypeArguments =>
-                  j.TSExpressionWithTypeArguments.check(impl) &&
-                  j.Identifier.check(impl.expression) &&
-                  impl.expression.name !== 'OnDestroy',
-              ) ?? [];
-            removeImport(root, '@angular/core', 'OnDestroy');
-          }
-        });
-    });
+            if (!j.NewExpression.check(init)) {
+              j(classPath)
+                .find(j.ClassMethod, { key: { name: 'constructor' } })
+                .forEach((path) => {
+                  j(path)
+                    .find(j.ExpressionStatement, {
+                      expression: {
+                        type: 'AssignmentExpression',
+                        left: {
+                          type: 'MemberExpression',
+                          object: { type: 'ThisExpression' },
+                          property: {
+                            type: 'Identifier',
+                            name: destroyPropertyName,
+                          },
+                        },
+                        right: { type: 'NewExpression' },
+                      },
+                    })
+                    .forEach((path) => {
+                      if (
+                        j.AssignmentExpression.check(path.node.expression) &&
+                        path.node.expression.right
+                      ) {
+                        init = path.node.expression.right;
+                      }
+                      path.prune();
+                      if (!path.parent?.node.body.body.length) {
+                        path.parent.prune();
+                      }
+                    });
+                });
+            }
 
-    if (needsDestroyRef.length) {
-      const hasDestroyRef = j(classPath).find(j.ClassProperty, {
-        key: { name: 'destroyRef' },
-      }).length;
+            if (
+              j.NewExpression.check(init) &&
+              j.Identifier.check(init.callee) &&
+              init.callee.name === 'Subject'
+            ) {
+              const subjectUnused = !j(classPath).find(j.Identifier, {
+                name: 'Subject',
+              }).length;
 
-      if (!hasDestroyRef) {
-        const destroyRefProperty = j.classProperty.from({
-          access: 'private',
-          key: j.identifier('destroyRef'),
-          value: j.callExpression(j.identifier('inject'), [
-            j.identifier('DestroyRef'),
-          ]),
-        });
-        // biome-ignore lint/suspicious/noExplicitAny: types just seem to be wrong here
-        (destroyRefProperty as any).readonly = true;
-        classPath.node.body.body.unshift(destroyRefProperty);
-        addImport(root, '@angular/core', 'DestroyRef');
-        addImport(root, '@angular/core', 'inject');
+              if (subjectUnused) {
+                removeImport(root, 'rxjs', 'Subject');
+              }
+            }
+          });
+
+        j(classPath)
+          .find(j.ClassMethod, { key: { name: 'ngOnDestroy' } })
+          .forEach((path) => {
+            path.node.body.body = path.node.body.body.filter(
+              (stmt) =>
+                !(
+                  j.ExpressionStatement.check(stmt) &&
+                  j.CallExpression.check(stmt.expression) &&
+                  j.MemberExpression.check(stmt.expression.callee) &&
+                  j.MemberExpression.check(stmt.expression.callee.object) &&
+                  j.ThisExpression.check(
+                    stmt.expression.callee.object.object,
+                  ) &&
+                  j.Identifier.check(stmt.expression.callee.property) &&
+                  j.Identifier.check(stmt.expression.callee.object.property) &&
+                  destroyPropertyName ===
+                    stmt.expression.callee.object.property.name
+                ),
+            );
+            if (!path.node.body.body.length) {
+              path.prune();
+
+              classPath.node.implements =
+                classPath.node.implements?.filter(
+                  (impl): impl is TSExpressionWithTypeArguments =>
+                    j.TSExpressionWithTypeArguments.check(impl) &&
+                    j.Identifier.check(impl.expression) &&
+                    impl.expression.name !== 'OnDestroy',
+                ) ?? [];
+              removeImport(root, '@angular/core', 'OnDestroy');
+            }
+          });
+      });
+
+      if (needsDestroyRef.length) {
+        const hasDestroyRef = j(classPath).find(j.ClassProperty, {
+          key: { name: 'destroyRef' },
+        }).length;
+
+        if (!hasDestroyRef) {
+          const destroyRefProperty = j.classProperty.from({
+            access: 'private',
+            key: j.identifier('destroyRef'),
+            value: j.callExpression(j.identifier('inject'), [
+              j.identifier('DestroyRef'),
+            ]),
+          });
+          // biome-ignore lint/suspicious/noExplicitAny: types just seem to be wrong here
+          (destroyRefProperty as any).readonly = true;
+          classPath.node.body.body.unshift(destroyRefProperty);
+          addImport(root, '@angular/core', 'DestroyRef');
+          addImport(root, '@angular/core', 'inject');
+        }
       }
-    }
 
-    if (destroyPropertyNames.size) {
-      addImport(
-        root,
-        '@angular/core/rxjs-interop',
-        'takeUntilDestroyed',
-        '@angular/core',
-      );
-      removeImport(root, 'rxjs/operators', 'takeUntil');
-    }
-  });
+      if (destroyPropertyNames.size) {
+        addImport(
+          root,
+          '@angular/core/rxjs-interop',
+          'takeUntilDestroyed',
+          '@angular/core',
+        );
+        removeImport(root, 'rxjs/operators', 'takeUntil');
+      }
+    });
 
   return root.toSource();
 }
