@@ -6,21 +6,20 @@
 [![GitHub issues](https://img.shields.io/github/issues/manbearwiz/jscodeshift-take-until-destroyed?style=flat-square)](https://github.com/manbearwiz/jscodeshift-take-until-destroyed/issues)
 [![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release&style=flat-square)](https://github.com/semantic-release/semantic-release)
 
-This codemod automates the migration to Angular's new `takeUntilDestroyed` operator. It replaces `takeUntil` with `takeUntilDestroyed` and replaces the `destroyed` subject with a destroyRef when required.
+This codemod automates the migration to Angular's new `takeUntilDestroyed` operator. It replaces `takeUntil` with `takeUntilDestroyed`, removes the destroyed notifier argument, and adds a `DestroyRef` when required.
 
-- [jscodeshift-take-until-destroyed](#jscodeshift-take-until-destroyed)
-  - [Installation](#installation)
-  - [Usage](#usage)
-    - [Examples](#examples)
-      - [`takeUntil(this.destroy$)` to `takeUntilDestroyed(this.destroyRef)`](#takeuntilthisdestroy-to-takeuntildestroyedthisdestroyref)
-      - [`takeUntil(this.destroy$)` to `takeUntilDestroyed()`](#takeuntilthisdestroy-to-takeuntildestroyed)
-  - [Running Unit Tests](#running-unit-tests)
-  - [Contributing](#contributing)
-  - [License](#license)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Examples](#examples)
+    - [`takeUntil(this.destroy$)` to `takeUntilDestroyed(this.destroyRef)`](#takeuntilthisdestroy-to-takeuntildestroyedthisdestroyref)
+    - [`takeUntil(this.destroy$)` to `takeUntilDestroyed()`](#takeuntilthisdestroy-to-takeuntildestroyed)
+- [Running Unit Tests](#running-unit-tests)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Installation
 
-To install the codemod, you can use `npm` or `yarn`.
+To install the codemod, use `npm` or `yarn`:
 
 ```bash
 npm install --save-dev jscodeshift-take-until-destroyed
@@ -28,7 +27,7 @@ npm install --save-dev jscodeshift-take-until-destroyed
 yarn add --dev jscodeshift-take-until-destroyed
 ```
 
-You'll also need [jscodeshift](https://github.com/facebook/jscodeshift), the framework that powers this codemod.
+You'll also need [jscodeshift](https://github.com/facebook/jscodeshift), the framework powering this codemod:
 
 ```bash
 npm install -g jscodeshift
@@ -36,7 +35,7 @@ npm install -g jscodeshift
 
 ## Usage
 
-To run the codemod, use the `jscodeshift` CLI and specify the path to the files you want to transform.
+Run the codemod using the `jscodeshift` CLI and specify the path to the files you want to transform:
 
 ```bash
 jscodeshift -t ./node_modules/jscodeshift-take-until-destroyed/src/take-until-destroyed.ts src
@@ -46,9 +45,9 @@ jscodeshift -t ./node_modules/jscodeshift-take-until-destroyed/src/take-until-de
 
 #### `takeUntil(this.destroy$)` to `takeUntilDestroyed(this.destroyRef)`
 
-When calling `takeUntil` with a `Subject` property, the codemod will replace it with `takeUntilDestroyed` and inject a `DestroyRef`.
+When `takeUntil` is used with a `Subject` property, the codemod will replace it with `takeUntilDestroyed` and inject a `DestroyRef`.
 
-Before:
+**Before:**
 
 ```ts
 import { Component, OnDestroy, OnInit } from '@angular/core';
@@ -59,7 +58,7 @@ export class MyComponent implements OnInit, OnDestroy {
   destroy$ = new Subject<void>();
 
   ngOnInit(): void {
-   this.obs$.pipe(takeUntil(this.destroy$)).subscribe((x) => console.log(x));
+    this.obs$.pipe(takeUntil(this.destroy$)).subscribe((x) => console.log(x));
   }
 
   ngOnDestroy(): void {
@@ -69,11 +68,11 @@ export class MyComponent implements OnInit, OnDestroy {
 }
 ```
 
-After running the codemod:
+**After:**
 
 ```ts
 import { Component, DestroyRef, inject, OnInit } from '@angular/core';
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { tap } from 'rxjs/operators';
 
 export class MyComponent implements OnInit {
@@ -87,9 +86,9 @@ export class MyComponent implements OnInit {
 
 #### `takeUntil(this.destroy$)` to `takeUntilDestroyed()`
 
-When calling `takeUntil` with a `Subject` property in a constructor or property initializer, the codemod will replace it with `takeUntilDestroyed` without injecting a `DestroyRef`.
+When `takeUntil` is called with a `Subject` property in a constructor or property initializer, the codemod replaces it with `takeUntilDestroyed` without injecting a `DestroyRef`.
 
-Before:
+**Before:**
 
 ```ts
 import { Component, inject, OnDestroy, OnInit } from '@angular/core';
@@ -98,10 +97,10 @@ import { Subject } from 'rxjs';
 
 export class MyComponent implements OnDestroy {
   private destroy$ = new Subject<boolean>();
-  private val$ = inject(ValService).obs$.pipe(takeUntil(this._X$));
+  private val$ = inject(ValService).obs$.pipe(takeUntil(this.destroy$));
 
   constructor() {
-    obs$.pipe(takeUntil(this._X$)).subscribe((x) => console.log(x));
+    obs$.pipe(takeUntil(this.destroy$)).subscribe((x) => console.log(x));
   }
 
   ngOnDestroy(): void {
@@ -111,11 +110,11 @@ export class MyComponent implements OnDestroy {
 }
 ```
 
-After running the codemod:
+**After:**
 
 ```ts
 import { Component, inject, OnInit } from '@angular/core';
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { tap } from 'rxjs/operators';
 
 export class MyComponent {
@@ -129,11 +128,11 @@ export class MyComponent {
 
 ## Running Unit Tests
 
-This repository includes a suite of unit tests to ensure the codemod behaves as expected across a variety of cases.
+This repository includes a suite of unit tests to ensure consistent behavior across cases.
 
-To run the tests, install the dependencies and use `vitest`:
+Run tests with:
 
-```sh
+```bash
 npm install
 npm test
 ```
