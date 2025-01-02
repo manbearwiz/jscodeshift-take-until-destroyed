@@ -1,0 +1,52 @@
+{
+  "name": "jscodeshift-take-until-destroyed",
+  "version": "0.0.0-development",
+  "description": "A jscodeshift codemod to transform take(1) and toPromise() to firstValueFrom()",
+  "author": "Kevin Brey",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/manbearwiz/jscodeshift-take-until-destroyed/issues"
+  },
+  "homepage": "https://github.com/manbearwiz/jscodeshift-take-until-destroyed#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manbearwiz/jscodeshift-take-until-destroyed.git"
+  },
+  "keywords": ["jscodeshift", "rxjs", "firstValueFrom", "lastValueFrom"],
+  "scripts": {
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "test:watch": "vitest --watch --coverage --ui",
+    "build": "tsc",
+    "prepublish": "npm run build",
+    "semantic-release": "semantic-release",
+    "lint": "npx @biomejs/biome check",
+    "lint:fix": "npx @biomejs/biome check --write"
+  },
+  "dependencies": {
+    "jscodeshift": "^17.1.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.3",
+    "@commitlint/cli": "^19.0.3",
+    "@commitlint/config-angular": "^19.0.3",
+    "@tsconfig/recommended": "^1.0.2",
+    "@tsconfig/strictest": "^2.0.1",
+    "@types/jscodeshift": "^0.12.0",
+    "@types/node": "^22.6.1",
+    "@vitest/coverage-v8": "^2.1.1",
+    "@vitest/ui": "^2.0.5",
+    "happy-dom": "^15.7.4",
+    "lefthook": "^1.7.16",
+    "semantic-release": "^24.1.1",
+    "typescript": "^5.1.6",
+    "vitest": "^2.0.5",
+    "vitest-tiny-reporter": "^1.0.5"
+  },
+  "overrides": {
+    "ast-types": "^0.16.1"
+  },
+  "release": {
+    "branches": ["main"]
+  }
+}
