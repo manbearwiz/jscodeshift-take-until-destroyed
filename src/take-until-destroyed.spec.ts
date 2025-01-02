@@ -336,4 +336,80 @@ export class MyComponent implements OnInit, OnDestroy {
       }"
     `);
   });
+
+  it('should not modify the class if it does not implement OnDestroy', () => {
+    expect(
+      t(`
+import { takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+
+export class MyService {
+  private readonly cancelRequest$ = new Subject<void>();
+
+  makeRequest() {
+    this.http.get('/api').pipe(takeUntil(this.cancelRequest$)).subscribe(() => doSomething());
+  }
+
+  cancelRequest() {
+    this.cancelRequest$.next();
+  }
+}
+`),
+    ).toMatchInlineSnapshot(`
+      "import { takeUntil } from 'rxjs/operators';
+      import { Subject } from 'rxjs';
+
+      export class MyService {
+        private readonly cancelRequest$ = new Subject<void>();
+
+        makeRequest() {
+          this.http.get('/api').pipe(takeUntil(this.cancelRequest$)).subscribe(() => doSomething());
+        }
+
+        cancelRequest() {
+          this.cancelRequest$.next();
+        }
+      }"
+    `);
+  });
+
+  it('should not modify classes that extend other classes', () => {
+    expect(
+      t(`
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { takeUntil, tap } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+
+export class MyComponent extends BaseComponent implements OnInit, OnDestroy {
+  destroy$ = new Subject<void>();
+
+  ngOnInit(): void {
+   this.obs$.pipe(takeUntil(this.destroy$)).subscribe((x) => console.log(x));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+}
+      `),
+    ).toMatchInlineSnapshot(`
+      "import { Component, OnDestroy, OnInit } from '@angular/core';
+import { takeUntil, tap } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+
+export class MyComponent extends BaseComponent implements OnInit, OnDestroy {
+  destroy$ = new Subject<void>();
+
+  ngOnInit(): void {
+   this.obs$.pipe(takeUntil(this.destroy$)).subscribe((x) => console.log(x));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+}"
+    `);
+  });
 });
