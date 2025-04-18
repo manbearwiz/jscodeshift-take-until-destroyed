@@ -40,7 +40,7 @@
     "lefthook": "^1.7.16",
     "semantic-release": "^24.2.0",
     "typescript": "^5.1.6",
-    "vitest": "^2.0.5",
+    "vitest": "^3.1.1",
     "vitest-tiny-reporter": "^1.0.5"
   },
   "overrides": {
